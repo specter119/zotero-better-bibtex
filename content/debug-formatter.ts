@@ -16,6 +16,12 @@ export function format(prefix, msg) {
     } else if (m instanceof String || typeof m === 'string') {
       // pass
 
+    } else if (m instanceof Map) {
+      m = `<Map: ${stringify(Object.entries(m))}>`
+
+    } else if (m instanceof Set) {
+      m = `<Set: ${stringify(Array.from(m))}>`
+
     } else {
       m = stringify(m) // , null, 2)
 

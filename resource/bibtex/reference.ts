@@ -313,10 +313,13 @@ export class Reference {
   constructor(item) {
     this.used = new Set
     if (Translator.preferences.qualityReport) {
-      const used = this.used
+      const self = this
       this.item = new Proxy(item, {
         get(target, key: string) {
-          used.add(key)
+          if (self.used) {
+            debug('used:', key)
+            self.used.add(key)
+          }
           return target[key]
         },
       })
@@ -364,7 +367,6 @@ export class Reference {
     }
 
     this.item.referenceType = this.item.cslType || this.item.itemType
-    debug('postextract: item:', this.item)
 
     // should be const referencetype: string | { type: string, subtype?: string }
     // https://github.com/Microsoft/TypeScript/issues/10422
@@ -1146,8 +1148,33 @@ export class Reference {
         }
       }
 
+      const used = new Set(Array.from(this.used)) // clone because the iteration below marks fields as used
+      this.used = null // suppress used marking
+      debug('reference fields: has', Object.keys(this.item), 'used', used)
       for (const [field, value] of Object.entries(this.item)) {
-        if (!this.used.has(field) && (typeof value === 'number' || value)) report.push(`unused ${field}: ${value}`)
+        switch (field) {
+          case 'relations':
+          case 'dateAdded':
+          case 'dateModified':
+          case 'uri':
+          case 'itemID':
+          case 'key':
+            continue
+
+          case 'notes':
+            if (!Translator.options.exportNotes) continue
+            break
+
+          case 'version':
+            if (!value) continue
+            break
+
+          case 'journalAbbreviation':
+            if (!Translator.options.useJournalAbbreviation) continue
+            break
+        }
+
+        if (!used.has(field) && (typeof value === 'number' || value)) report.push(`unused ${this.item.itemType}.${field}: ${value}`)
       }
     } else {
       report = [`I don't know how to quality-check ${this.referencetype} references`]
