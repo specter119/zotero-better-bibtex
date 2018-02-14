@@ -11,6 +11,7 @@
       "csquotes": "",
       "DOIandURL": "both",
       "preserveBibTeXVariables": false,
+      "qualityReport": true,
       "citekeyFormat": "[zotero:clean]"
     },
     "options": {
