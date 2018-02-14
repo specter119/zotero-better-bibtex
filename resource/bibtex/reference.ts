@@ -270,6 +270,7 @@ const Language = new class { // tslint:disable-line:variable-name
 export class Reference {
   public raw: boolean
   public has: { [key: string]: any }
+  public used: Set<string>
   public item: ISerializedItem
   public referencetype: string
   public useprefix: boolean
@@ -310,7 +311,19 @@ export class Reference {
   private juniorcomma: boolean
 
   constructor(item) {
-    this.item = item
+    this.used = new Set
+    if (Translator.preferences.qualityReport) {
+      const used = this.used
+      this.item = new Proxy(item, {
+        get(target, key: string) {
+          used.add(key)
+          return target[key]
+        },
+      })
+    } else {
+      this.item = item
+    }
+
     this.has = {}
     this.raw = (Translator.preferences.rawLaTag === '*') || (this.item.tags.includes(Translator.preferences.rawLaTag))
     this.data = {DeclarePrefChars: ''}
@@ -1131,6 +1144,10 @@ export class Reference {
         } else {
           if (!titleCased) report.push('? Title looks like it was stored in lower-case in Zotero')
         }
+      }
+
+      for (const [field, value] of Object.entries(this.item)) {
+        if (!this.used.has(field) && (typeof value === 'number' || value)) report.push(`unused ${field}: ${value}`)
       }
     } else {
       report = [`I don't know how to quality-check ${this.referencetype} references`]

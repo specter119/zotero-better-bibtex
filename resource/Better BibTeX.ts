@@ -181,6 +181,7 @@ Translator.doExport = () => {
   let item: ISerializedItem
   while (item = Exporter.nextItem()) {
     const ref = new Reference(item)
+    item = ref.item // picks up proxied object for quality report
 
     ref.add({name: 'address', value: item.place})
     ref.add({name: 'chapter', value: item.section})

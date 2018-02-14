@@ -196,6 +196,7 @@ Translator.doExport = () => {
   let item: ISerializedItem
   while (item = Exporter.nextItem()) {
     const ref = new Reference(item)
+    item = ref.item // picks up proxied object for quality report
 
     if (['bookSection', 'chapter'].includes(item.referenceType) && ref.hasCreator('bookAuthor')) ref.referencetype = 'inbook'
     if (item.referenceType === 'book' && !ref.hasCreator('author') && ref.hasCreator('editor')) ref.referencetype = 'collection'
