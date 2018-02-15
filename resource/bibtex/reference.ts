@@ -1161,6 +1161,7 @@ export class Reference {
           case 'dateModified':
           case 'uri':
           case 'itemID':
+          case 'itemType':
           case 'key':
             continue
 
@@ -1174,6 +1175,10 @@ export class Reference {
 
           case 'journalAbbreviation':
             if (!Translator.options.useJournalAbbreviation) continue
+            break
+
+          case 'url':
+            if (Translator.BetterBibTeX && Translator.preferences.bibtexURL === 'off') continue
             break
         }
 
