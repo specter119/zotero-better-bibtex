@@ -268,6 +268,8 @@ Translator.doExport = () => {
     }
 
     ref.add({ name: 'file', value: item.attachments, enc: 'attachments' })
+    ref.add({ name: 'pagetotal', value: item.numPages })
+
     ref.complete()
   }
 
