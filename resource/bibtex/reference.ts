@@ -1159,6 +1159,7 @@ export class Reference {
           case 'uri':
           case 'itemID':
           case 'key':
+          case 'rights':
             continue
 
           case 'notes':
