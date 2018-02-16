@@ -312,7 +312,7 @@ export class Reference {
 
   constructor(item) {
     this.used = new Set
-    if (Translator.preferences.qualityReport) {
+    if (Translator.preferences.testing || Translator.preferences.qualityReport) {
       const self = this
       this.item = new Proxy(item, {
         get(target, key: string) {
@@ -1123,13 +1123,14 @@ export class Reference {
   }
 
   private qualityReport() {
-    if (!Translator.preferences.qualityReport) return ''
+    let report = []
 
-    let report = this.lint({
-      timestamp: `added because JabRef format is set to ${Translator.preferences.jabrefFormat || '?'}`,
-    })
+    if (Translator.preferences.qualityReport) {
+      const linted = this.lint({
+        timestamp: `added because JabRef format is set to ${Translator.preferences.jabrefFormat || '?'}`,
+      })
+      report = linted || [`I don't know how to quality-check ${this.referencetype} references`]
 
-    if (report) {
       if (this.has.journal && this.has.journal.value.indexOf('.') >= 0) report.push(`? Possibly abbreviated journal title ${this.has.journal.value}`)
       if (this.has.journaltitle && this.has.journaltitle.value.indexOf('.') >= 0) report.push(`? Possibly abbreviated journal title ${this.has.journaltitle.value}`)
 
@@ -1147,7 +1148,9 @@ export class Reference {
           if (!titleCased) report.push('? Title looks like it was stored in lower-case in Zotero')
         }
       }
+    }
 
+    if (Translator.preferences.qualityReport || Translator.preferences.testing) {
       const used = new Set(Array.from(this.used)) // clone because the iteration below marks fields as used
       this.used = null // suppress used marking
       debug('reference fields: has', Object.keys(this.item), 'used', used)
@@ -1158,6 +1161,7 @@ export class Reference {
           case 'dateModified':
           case 'uri':
           case 'itemID':
+          case 'itemType':
           case 'key':
           case 'rights':
             continue
@@ -1173,12 +1177,14 @@ export class Reference {
           case 'journalAbbreviation':
             if (!Translator.options.useJournalAbbreviation) continue
             break
+
+          case 'url':
+            if (Translator.BetterBibTeX && Translator.preferences.bibtexURL === 'off') continue
+            break
         }
 
         if (!used.has(field) && (typeof value === 'number' || value)) report.push(`unused ${this.item.itemType}.${field}: ${value}`)
       }
-    } else {
-      report = [`I don't know how to quality-check ${this.referencetype} references`]
     }
 
     if (!report.length) return ''
