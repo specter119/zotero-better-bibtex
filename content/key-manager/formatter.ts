@@ -8,8 +8,9 @@ import { debug } from '../debug.ts'
 
 const parser = require('./formatter.pegjs')
 import * as DateParser from '../dateparser.ts'
+import * as CRC32 from 'crc-32'
 const { transliterate } = require('transliteration')
-const fold2ascii = require('fold-to-ascii').fold
+import { fold as fold2ascii } from 'fold-to-ascii'
 import PunyCode = require('punycode')
 import { JournalAbbrev } from '../journal-abbrev.ts'
 
@@ -182,6 +183,19 @@ class PatternFormatter {
   public $library() {
     if (this.item.item.libraryID === Zotero.Libraries.userLibraryID) return ''
     return Zotero.Libraries.getName(this.item.item.libraryID)
+  }
+
+  /** Mendeley "universal" citekey hash */
+  public $uch() {
+    const hash = str => {
+      const crc = str ? CRC32.bstr(str) : 0
+      const hash1 = 'b'.charCodeAt(0) + Math.floor((crc % (10 * 26)) / 26)  // tslint:disable-line:no-magic-numbers
+      const hash2 = 'a'.charCodeAt(0) + (crc % 26)                        // tslint:disable-line:no-magic-numbers
+      return String.fromCharCode(hash1) + String.fromCharCode(hash2)
+    }
+    const doi = this.item.item.getField('DOI', false, true)
+    if (doi) return hash(doi)
+    return hash(this.titleWords(this.item.title).join(''))
   }
 
   /** The first `N` (default: all) characters of the `M`th (default: first) author's last name. */

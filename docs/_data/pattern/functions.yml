@@ -52,6 +52,7 @@
 '`title`': >-
   Capitalize all the significant words of the title, and concatenate them. For
   example, `An awesome paper on JabRef` will become `AnAwesomePaperonJabref`
+'`uch`': Mendeley "universal" citekey hash
 '`veryshorttitle`': 'The first word of the title, discounting ''the'', ''a'', ''an''.'
 '`year`': The year of the publication
 '`zotero`': Generates citation keys as the stock Zotero Bib(La)TeX export does
