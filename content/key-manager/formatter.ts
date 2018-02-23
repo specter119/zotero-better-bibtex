@@ -187,15 +187,15 @@ class PatternFormatter {
 
   /** Mendeley "universal" citekey hash */
   public $uch() {
-    const hash = str => {
+    const hash = (start, factor, str) => {
       const crc = str ? CRC32.bstr(str) : 0
-      const hash1 = 'b'.charCodeAt(0) + Math.floor((crc % (10 * 26)) / 26)  // tslint:disable-line:no-magic-numbers
+      const hash1 = start.charCodeAt(0) + Math.floor((crc % (factor * 26)) / 26)  // tslint:disable-line:no-magic-numbers
       const hash2 = 'a'.charCodeAt(0) + (crc % 26)                        // tslint:disable-line:no-magic-numbers
       return String.fromCharCode(hash1) + String.fromCharCode(hash2)
     }
     const doi = this.item.item.getField('DOI', false, true)
-    if (doi) return hash(doi)
-    return hash(this.titleWords(this.item.title).join(''))
+    if (doi) return hash('b', 10, doi)
+    return hash('t', 4, this.titleWords(this.item.title).join(''))
   }
 
   /** The first `N` (default: all) characters of the `M`th (default: first) author's last name. */
