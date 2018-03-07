@@ -4,6 +4,7 @@ import * as webpack from 'webpack'
 import * as path from 'path'
 import * as fs from 'fs'
 import stringify = require('json-stringify-safe')
+import UglifyJsPlugin = require('uglifyjs-webpack-plugin')
 
 // import BailPlugin from 'zotero-plugin/plugin/bail'
 
@@ -26,7 +27,26 @@ const _ = require('lodash')
 const common = {
   mode: 'production',
   optimization: {
-    minimize: false,
+    // minimize: false,
+    minimizer: [
+      new UglifyJsPlugin({
+        sourceMap: false,
+        uglifyOptions: {
+          compress: {
+            inline: true,
+            drop_console: true,
+            ecma: 6,
+            keep_classnames: true,
+            keep_fnames: true,
+            unused: true,
+          },
+          mangle: {
+            keep_classnames: true,
+            keep_fnames: true,
+          },
+        },
+      }),
+    ],
     concatenateModules: false,
     noEmitOnErrors: true,
     // namedModules: true,
