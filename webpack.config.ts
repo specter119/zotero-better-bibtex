@@ -44,6 +44,10 @@ const common = {
             keep_classnames: true,
             keep_fnames: true,
           },
+          output: {
+            beautify: true,
+            indent_level: 2,
+          },
         },
       }),
     ],
