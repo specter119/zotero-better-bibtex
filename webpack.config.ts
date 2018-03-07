@@ -53,9 +53,8 @@ const common = {
     ],
     concatenateModules: false,
     noEmitOnErrors: true,
-    // namedModules: true,
-    // namedChunks: true,
-    // runtimeChunk: false,
+    namedModules: true,
+    namedChunks: true,
   },
 
   node: { fs: 'empty' },
@@ -84,7 +83,6 @@ config.push(
   _.merge({}, common, {
     optimization: {
       splitChunks: {
-        // name: true,
         cacheGroups: {
           common: {
             name: 'common',
@@ -101,7 +99,6 @@ config.push(
       },
     },
     plugins: [
-      // new webpack.NamedModulesPlugin(),
       new CircularDependencyPlugin({ failOnError: true }),
       // BailPlugin,
     ],
@@ -160,7 +157,7 @@ for (const minitest of ['pfunc']) {
     _.merge({}, common, {
       plugins: [
         new CircularDependencyPlugin({ failOnError: true }),
-        BailPlugin,
+        // BailPlugin,
       ],
       context: path.resolve(__dirname, './minitests'),
       entry: { [minitest]: `./${minitest}.ts` },
