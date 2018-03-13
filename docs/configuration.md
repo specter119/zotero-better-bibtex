@@ -188,6 +188,12 @@ The following settings are not exposed in the UI, but can be found under `Prefer
 
 All are prefixed with `extensions.zotero.translators.better-bibtex.` in the table you will find there
 
+### keyRefreshPostfix
+
+default: `off`
+
+If you refresh a dynamic key and the newly generated key is the same except for the postfix, the reference retains that postfix by default (in other words, refresh is conservative). If you want the postfix to potentially change when refreshing, enable this option.
+
 ### autoAbbrevStyle
 
 default: `""`
@@ -252,7 +258,7 @@ Name particle handling
 
 default: `off`
 
-Replaces the "note" field with the bibtex key during citation rendering in Word/Libreoffice. Main use-case is to help migrating word documents to pandoc. This setting only takes effect during startup, so if you change it, you will have to restart Zotero to have this take effect.
+Replaces the "note" field with the bibtex key during citation rendering in Word/Libreoffice. Main use-case is to help migrating word documents to pandoc. This setting only takes effect during startup, so if you change it, you will have to restart Zotero to have this take effect (or to disable it. Please disable it when done). You will want to use a custom CSL style (such as [this](https://raw.githubusercontent.com/retorquere/zotero-better-bibtex/master/better-bibtex-citekeys.csl)) to make this work.
 
 ### scrubDatabase
 
