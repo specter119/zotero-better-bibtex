@@ -281,3 +281,15 @@ This is **EXPERIMENTAL** and this preference may disappear at any moment without
 default: `off`
 
 When on, BBT will automatically pin the first citekey it generates for an item.
+
+### ShareLaTeX_email
+
+default: `""`
+
+email
+
+### ShareLaTeX_password
+
+default: `""`
+
+password

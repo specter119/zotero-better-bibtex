@@ -294,3 +294,9 @@
       description: >-
         When on, BBT will automatically pin the first citekey it generates for
         an item.
+    ShareLaTeX_email:
+      default: '""'
+      description: email
+    ShareLaTeX_password:
+      default: '""'
+      description: password

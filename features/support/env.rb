@@ -11,6 +11,7 @@ require 'benchmark'
 require 'json'
 require 'reverse_markdown'
 require 'deepsort'
+require 'dotenv/load'
 
 #if !OS.mac? && (ENV['HEADLESS'] || 'true') == 'true'
 #  STDOUT.puts "Starting headless..."
@@ -444,6 +445,11 @@ module BBT
     profile['extensions.zotero.translators.better-bibtex.removeStock'] = false
   else
     profile['extensions.zotero.translators.better-bibtex.removeStock'] = true
+  end
+
+  if ENV['SHARELATEX_EMAIL']
+    profile['extensions.zotero.translators.better-bibtex.ShareLaTeX_email'] = ENV['SHARELATEX_EMAIL']
+    profile['extensions.zotero.translators.better-bibtex.ShareLaTeX_password'] = ENV['SHARELATEX_PASSWORD']
   end
 
   profile['extensions.zotero.firstRun2'] = false

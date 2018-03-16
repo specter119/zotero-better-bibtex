@@ -391,6 +391,22 @@
           When on, BBT will automatically pin the first citekey it generates for an item.
         -->
 
+        <preference
+          name="extensions.zotero.translators.better-bibtex.ShareLaTeX_email"
+          type="string"
+          default=""/>
+        <!--!
+          email
+        -->
+        <preference
+          name="extensions.zotero.translators.better-bibtex.ShareLaTeX_password"
+          type="string"
+          default=""/>
+        <!--!
+          password
+        -->
+
+
       </preferences>
       <tabbox id="better-bibtex-prefs-tabbox">
         <tabs id="better-bibtex-prefs-tabs" onselect="window.sizeToContent()">

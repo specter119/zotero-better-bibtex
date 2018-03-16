@@ -25,8 +25,8 @@ if (!Zotero.DebugBridge) {
           if (typeof response === 'undefined') response = null;
           response = JSON.stringify(response);
         } catch (err) {
-          Zotero.debug('debug-bridge failed (' + ((new Date()) - start) + 'ms): ' + err);
-          return [500, "application/text", 'debug-bridge failed: ' + err + "\n" + err.stack];
+          Zotero.debug('debug-bridge failed (' + ((new Date()) - start) + 'ms): ' + JSON.stringify(err));
+          return [500, "application/text", 'debug-bridge failed: ' + JSON.stringify(err) + "\n" + err.stack];
         }
         Zotero.debug('debug-bridge succeeded (' + ((new Date()) - start) + 'ms)');
         return [201, "application/json", response];

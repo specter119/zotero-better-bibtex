@@ -38,3 +38,5 @@ citeprocNoteCitekey: false
 scrubDatabase: false
 lockedInit: false
 autoPin: false
+ShareLaTeX_email: ''
+ShareLaTeX_password: ''
