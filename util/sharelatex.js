@@ -20,16 +20,22 @@ try {
 }
 
 
-var encoded = [
-  `email=${encodeURIComponent(Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_email'))}`,
-  `password=${encodeURIComponent(Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_password'))}`,
-  `_csrf=${encodeURIComponent(_csrf)}`,
-  `redir=${encodeURIComponent('')}`,
-].join('&').replace(/%20/g, '+');
+function encode(params) {
+  var encoded = []
+  for (const [key, value] of Object.entries(params)) {
+    encoded.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+  }
+  return encoded.join('&').replace(/%20/g, '+');
+}
 
 try {
   loginPage = await fetch('https://www.sharelatex.com/login', {
-    body: encoded,
+    body: encode({
+      email: Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_email'),
+      password: Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_password'),
+      _csrf: _csrf,
+      redir: '',
+    }),
     cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
     credentials: 'same-origin', // include, same-origin, *omit
     headers: {
@@ -66,4 +72,81 @@ try {
   return `could not get projects: ${err.message} ${JSON.stringify(err)}`;
 }
 
-return projects.find(project => project.name === 'MWE')
+var timestamp = Date.now().toString()
+var channelInfo = await fetch(`https://www.sharelatex.com/socket.io/1/?t=${timestamp}`)
+var channel = (await channelInfo.text()).split(':')[0]
+
+var project = projects.find(project => project.name === 'MWE');
+
+var chatter = [];
+function folderId() {
+  return new Promise(function(resolve, reject) {
+    var server = new WebSocket(`wss://www.sharelatex.com/socket.io/1/websocket/${channel}`);
+    var start = Date.now();
+
+    server.onopen = function() {
+      chatter.push([Date.now() - start, 'opened']);
+      setTimeout(function() {
+        chatter.push([Date.now() - start, 'done']);
+        resolve('done');
+      }, 2000);
+    };
+
+    server.onmessage = function(event) {
+      chatter.push([Date.now() - start, event.data]);
+    };
+
+    server.onerror = function(err) {
+      chatter.push([Date.now() - start, 'err', err]);
+      reject(err);
+    };
+
+    server.onclose = function(event) {
+      chatter.push([Date.now() - start, 'closed', event.code]);
+    };
+  })
+}
+
+await folderId();
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+return chatter;
+
+/*
+var body = new FormData();
+try {
+  body.append('qqfile', new Blob(['emiliano']), 'better-bibtex.bib')
+} catch (err) {
+  return `could not create formdata: ${err.message} ${JSON.stringify(err)}`;
+}
+
+var params = encode({
+  // folder_id = ?
+  __csrf: _csrf,
+  qquuid: `${project.id}-better-bibtex`,
+  qqfilename: 'better-bibtex.bib',
+  qqtotalfilesize: 8,
+});
+
+try {
+  loginPage = await fetch(`https://www.sharelatex.com/project/${project.id}/upload?${params}`, {
+    body: body,
+    cache: 'no-cache',
+    credentials: 'same-origin',
+    headers: {
+      'content-type': 'multipart/form-data',
+    },
+    method: 'POST',
+    mode: 'cors',
+    redirect: 'follow',
+    referrer: 'no-referrer',
+  });
+} catch (err) {
+  return `could not post bibfile: ${err.message} ${JSON.stringify(err)}`;
+}
+
+return loginPage.statusText
+*/
