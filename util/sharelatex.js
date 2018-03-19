@@ -2,11 +2,12 @@ var DOMParser = Components.classes['@mozilla.org/xmlextras/domparser;1'].createI
 
 var loginPage;
 var _csrf;
+var chatter = [];
 
 try {
   loginPage = await fetch('https://www.sharelatex.com/login', {
     cache: 'no-cache',
-    credentials: 'same-origin',
+    credentials: 'include',
     method: 'GET',
     mode: 'same-origin',
     redirect: 'follow',
@@ -18,7 +19,6 @@ try {
 } catch (err) {
   return `could not get login page: ${err.message}, ${JSON.stringify(err)}`;
 }
-
 
 function encode(params) {
   var encoded = []
@@ -37,10 +37,9 @@ try {
       redir: '',
     }),
     cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-    credentials: 'same-origin', // include, same-origin, *omit
+    credentials: 'include', // include, same-origin, *omit
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
-      // 'cookie': loginPage.getResponseHeader('Set-Cookie'),
     },
     method: 'POST', // *GET, POST, PUT, DELETE, etc.
     mode: 'cors', // no-cors, cors, *same-origin
@@ -48,7 +47,7 @@ try {
     referrer: 'no-referrer', // *client, no-referrer
   });
 } catch (err) {
-  return `could not login: ${JSON.stringify(err)}`;
+  return `could not login: ${err.message} ${JSON.stringify(err)}`;
 }
 var loggedIn = await loginPage.json();
 
@@ -59,7 +58,7 @@ var projects = null;
 try {
   projectPage = await fetch('https://www.sharelatex.com/project', {
     cache: 'no-cache',
-    credentials: 'same-origin',
+    credentials: 'include',
     method: 'GET',
     mode: 'same-origin',
     redirect: 'follow',
@@ -78,7 +77,7 @@ var channel = (await channelInfo.text()).split(':')[0]
 
 var project = projects.find(project => project.name === 'MWE');
 
-var chatter = [];
+/*
 function folderId() {
   return new Promise(function(resolve, reject) {
     var server = new WebSocket(`wss://www.sharelatex.com/socket.io/1/websocket/${channel}`);
@@ -108,9 +107,35 @@ function folderId() {
 }
 
 await folderId();
+*/
+
+async function poll() {
+  var url = `https://www.sharelatex.com/socket.io/1/xhr-polling/${channel}?t=${Date.now().toString()}`;
+  chatter.push(url);
+  var response = await fetch(url, {
+    cache: 'no-cache',
+    credentials: 'include',
+    method: 'GET',
+    // mode: 'cors',
+    // redirect: 'follow',
+    // referrer: 'no-referrer',
+  });
+  return await response.text();
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+try {
+  chatter.push(await poll());
+  await sleep(200);
+  chatter.push(await poll());
+  await sleep(200);
+  chatter.push(await poll());
+  await sleep(200);
+} catch (err) {
+  return `could not poll: ${err.message} ${JSON.stringify(err)}`;
 }
 
 return chatter;
@@ -135,7 +160,7 @@ try {
   loginPage = await fetch(`https://www.sharelatex.com/project/${project.id}/upload?${params}`, {
     body: body,
     cache: 'no-cache',
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: {
       'content-type': 'multipart/form-data',
     },
