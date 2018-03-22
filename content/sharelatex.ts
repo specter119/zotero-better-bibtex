@@ -1,15 +1,24 @@
 declare const Components: any
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return (new Promise(resolve => setTimeout(resolve, ms)))
 }
 
 function encode(params) {
   const encoded = []
   for (const [key, value] of Object.entries(params)) {
-    encoded.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    encoded.push(`${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
   }
   return encoded.join('&').replace(/%20/g, '+')
+}
+
+interface IXMLHttpResponse {
+  response: string
+}
+interface IXMLHttpOptions {
+  headers?: { [key: string]: string },
+  method?: string,
+  body: string | FormData,
 }
 
 export class ShareLaTeX {
@@ -113,18 +122,13 @@ export class ShareLaTeX {
   }
 
   // promisified XHR
-  private async fetch(url, options) {
-    if (!options) options = {}
-    if (!options.method) options.method = 'GET'
-
+  private async fetch(url, options: IXMLHttpOptions = {}): Promise<IXMLHttpResponse> {
     return new Promise((resolve, reject) => {
       const req = new XMLHttpRequest()
-      req.open(options.method, url)
+      req.open(options.method || 'GET', url)
 
-      if (options.headers) {
-        for (const [key, value] of Object.entries(options.headers)) {
-          req.setRequestHeader(key, value)
-        }
+      for (const [key, value] of Object.entries(options.headers || {})) {
+        req.setRequestHeader(key, value)
       }
 
       req.onload = () => {
@@ -135,7 +139,7 @@ export class ShareLaTeX {
         }
       }
 
-      req.onerror () => {
+      req.onerror = () => {
         reject(Error('Network Error'))
       }
 
