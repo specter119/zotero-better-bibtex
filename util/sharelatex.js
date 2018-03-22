@@ -1,11 +1,12 @@
 try {
-  var chatter = [];
   var DOMParser = Components.classes['@mozilla.org/xmlextras/domparser;1'].createInstance(Components.interfaces.nsIDOMParser);
 
+  // async sleep
   function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // urlencode params
   function encode(params) {
     var encoded = []
     for (const [key, value] of Object.entries(params)) {
@@ -14,6 +15,7 @@ try {
     return encoded.join('&').replace(/%20/g, '+');
   }
 
+  // promisified XHR
   async function _fetch(url, options) {
     if (!options) options = {};
     if (!options.method) options.method = 'GET';
@@ -45,6 +47,7 @@ try {
     });
   }
 
+  // simple expect-send
   async function expect(channel, cookie, expected, data) {
     var poll = await _fetch(`https://www.sharelatex.com/socket.io/1/xhr-polling/${channel}?t=${Date.now().toString()}`, {
       headers: { Cookie: cookie },
@@ -56,10 +59,12 @@ try {
     return m;
   }
 
+  // get login page to get _csrf
   var page = await _fetch('https://www.sharelatex.com/login');
   var doc = DOMParser.parseFromString(page.response, 'text/html');
   var _csrf = Array.from(doc.getElementsByTagName('input')).find(input => input.getAttribute('name') === '_csrf').getAttribute('value');
 
+  // post login page to get session cookie
   var page = await _fetch('https://www.sharelatex.com/login', {
     method: 'POST',
     headers: {
@@ -77,31 +82,38 @@ try {
 
   if (response.redir !== '/project') throw new Error(`unexpected response: ${page.response}`);
 
+  // get projects list
   var page = await _fetch('https://www.sharelatex.com/project', {
     headers: { Cookie: cookie }
   })
   var doc = DOMParser.parseFromString(page.response, 'text/html');
   var projects = JSON.parse(doc.getElementById('data').textContent).projects;
 
+  // select a project, in my case the project named 'MWE'
   var project = projects.find(project => project.name === 'MWE');
 
+  // get the channel ID
   var timestamp = Date.now().toString()
   var channel = await _fetch(`https://www.sharelatex.com/socket.io/1/?t=${timestamp}`, {
     headers: { Cookie: cookie }
   });
   channel = channel.response.split(':')[0];
 
+  // connect to ShareLaTeX
   await expect(channel, cookie, /^1::$/);
 
+  // get "connection accepted"
   var accepted = await expect(channel, cookie, /^5:::({.+})$/);
   if (JSON.parse(accepted[1]).name !== 'connectionAccepted') throw new Error(`connected rejected: ${accepted.toString()}`);
 
   await sleep(200);
 
+  // join the project picked out above
   var join = await expect(channel, cookie, /^1$/, `5:1+::${JSON.stringify({name: 'joinProject', args: [{ project_id: project.id }]})}`)
 
   await sleep(200);
 
+  // get "join accepted" and pick out the root folder
   project = await expect(channel, cookie, /^6:::1\+(\[.+\])$/);
   project = JSON.parse(project[1])[1];
   project = {
@@ -110,8 +122,7 @@ try {
     docs: project.rootFolder[0].docs.reduce((docs, doc) => { docs[doc._id] = doc.name; return docs }, {}),
   }
 
-  // 5aad1630575dbf74c7116da5
-
+  // construct the form post
   var bib = 'heyns';
   var filename = 'better-bibtex.bib';
 
@@ -126,6 +137,7 @@ try {
     qqtotalfilesize: bib.length,
   });
 
+  // upload the bib file
   var upload = await _fetch(`https://www.sharelatex.com/project/${project.id}/upload?${params}`, {
     headers: { Cookie: cookie },
     body: body,
@@ -133,6 +145,7 @@ try {
   })
   if (!JSON.parse(upload.response).success) throw new Error(`upload: expected success, got ${upload.response}`);
 
+  // great success!
   return upload.response;
 
 } catch (err) {
