@@ -1,5 +1,7 @@
 declare const Components: any
 
+import { Preferences as Prefs } from './prefs.ts'
+
 function sleep(ms) {
   return (new Promise(resolve => setTimeout(resolve, ms)))
 }
@@ -12,19 +14,17 @@ function encode(params) {
   return encoded.join('&').replace(/%20/g, '+')
 }
 
-interface IXMLHttpResponse {
-  response: string
-}
 interface IXMLHttpOptions {
   headers?: { [key: string]: string },
   method?: string,
-  body: string | FormData,
+  body?: string | FormData,
 }
 
 export class ShareLaTeX {
   private channel: string
   private cookie: string
   private csrf: string
+  private domParser: any
 
   constructor() {
     this.domParser = Components.classes['@mozilla.org/xmlextras/domparser;1'].createInstance(Components.interfaces.nsIDOMParser)
@@ -33,7 +33,7 @@ export class ShareLaTeX {
   public async login() {
     // get login page to get _csrf
     let page = await this.fetch('https://www.sharelatex.com/login')
-    const doc = this.domParser.parseFromString(page.response, 'text/html')
+    const doc = this.domParser.parseFromString(page.response, 'text/html') as XMLDocument
     this.csrf = Array.from(doc.getElementsByTagName('input')).find(input => input.getAttribute('name') === '_csrf').getAttribute('value')
 
     // post login page to get session cookie
@@ -43,8 +43,8 @@ export class ShareLaTeX {
         'Content-type': 'application/x-www-form-urlencoded',
       },
       body: encode({
-        email: Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_email'),
-        password: Zotero.Prefs.get('translators.better-bibtex.ShareLaTeX_password'),
+        email: Prefs.get('ShareLaTeX_email'),
+        password: Prefs.get('ShareLaTeX_password'),
         _csrf: this.csrf,
         redir: '',
       }),
@@ -68,10 +68,10 @@ export class ShareLaTeX {
 
   public async upload(projectId, filename, contents) {
     // get the channel Id
-    this.channel = await this.fetch(`https://www.sharelatex.com/socket.io/1/?t=${Date.now().toString()}`, {
-      headers: { Cookie: cookie },
+    const channel = await this.fetch(`https://www.sharelatex.com/socket.io/1/?t=${Date.now().toString()}`, {
+      headers: { Cookie: this.cookie },
     })
-    this.channel = this.channel.response.split(':')[0]
+    this.channel = channel.response.split(':')[0]
 
     // connect to ShareLaTeX
     await this.expect(/^1::$/)
@@ -122,7 +122,7 @@ export class ShareLaTeX {
   }
 
   // promisified XHR
-  private async fetch(url, options: IXMLHttpOptions = {}): Promise<IXMLHttpResponse> {
+  private async fetch(url, options: IXMLHttpOptions = {}): Promise<XMLHttpRequest> {
     return new Promise((resolve, reject) => {
       const req = new XMLHttpRequest()
       req.open(options.method || 'GET', url)
@@ -143,11 +143,11 @@ export class ShareLaTeX {
         reject(Error('Network Error'))
       }
 
-      req.send(options.body)
-    })
+      req.send(options.body || undefined)
+    }) as Promise<XMLHttpRequest>
   }
 
-  private async expect(expected, data) {
+  private async expect(expected, data = null) {
     const poll = await this.fetch(`https://www.sharelatex.com/socket.io/1/xhr-polling/${this.channel}?t=${Date.now().toString()}`, {
       headers: { Cookie: this.cookie },
       method: data ? 'POST' : 'GET',
