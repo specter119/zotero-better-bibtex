@@ -21,6 +21,8 @@ interface IXMLHttpOptions {
 }
 
 export class ShareLaTeX {
+  public enabled: boolean
+
   private channel: string
   private cookie: string
   private csrf: string
@@ -28,9 +30,19 @@ export class ShareLaTeX {
 
   constructor() {
     this.domParser = Components.classes['@mozilla.org/xmlextras/domparser;1'].createInstance(Components.interfaces.nsIDOMParser)
+    this.enabled = Prefs.get('ShareLaTeX_email') && Prefs.get('ShareLaTeX_password')
   }
 
   public async login() {
+    try {
+      return await this._login()
+    } catch (err) {
+      debug('ShareLaTeX.login:', err)
+      return false
+    }
+  }
+
+  public async _login() {
     // get login page to get _csrf
     let page = await this.fetch('https://www.sharelatex.com/login')
     const doc = this.domParser.parseFromString(page.response, 'text/html') as XMLDocument
@@ -52,9 +64,19 @@ export class ShareLaTeX {
     if (JSON.parse(page.response).redir !== '/project') throw new Error(`unexpected response: ${page.response}`)
 
     this.cookie = page.getResponseHeader('Set-Cookie')
+    return true
   }
 
   public async projects() {
+    try {
+      return await this._projects()
+    } catch (err) {
+      debug('ShareLaTeX.projects:', err)
+      return []
+    }
+  }
+
+  public async _projects() {
     // get projects list
     const page = await this.fetch('https://www.sharelatex.com/project', {
       headers: { Cookie: this.cookie },
