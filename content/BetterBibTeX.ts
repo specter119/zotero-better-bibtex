@@ -86,21 +86,21 @@ $patch$(Zotero_File_Exporter.prototype, 'save', original => async function save(
   const sharelatex = new ShareLaTeX
   const projects = await sharelatex.projects()
 
-  const io: { translators: string[], projects: any[], selectedTranslator?: any, selectedProject?: any, displayOptions?: any } = { translators, projects }
+  const io: { translators: string[], projects: any[], selectedTranslator?: any, displayOptions?: any } = { translators, projects }
 
   // present options dialog
   window.openDialog('chrome://zotero/content/exportOptions.xul', '_blank', 'chrome,modal,centerscreen,resizable=no', io)
   if (!io.selectedTranslator) { return false }
 
-  if (io.selectedProject) {
+  if (io.displayOptions.selectedProject) {
+    io.displayOptions.selectedProject = `sharelatex://${io.displayOptions.selectedProject}/${encodeURIComponent(this.name)}.bib`
     await sharelatex.upload(
-      io.selectedProject,
+      io.displayOptions.selectedProject,
       `${this.name}.bib`,
       await Translators.translate(io.selectedTranslator, io.displayOptions, { collection: this.collection, library: this.libraryID })
     )
 
     return
-
   }
 
   const nsIFilePicker = Components.interfaces.nsIFilePicker
@@ -154,32 +154,37 @@ $patch$(Zotero.Translate.Export.prototype, 'translate', original => function() {
     if (translatorID.translatorID) translatorID = translatorID.translatorID
 
     let capture = this._displayOptions && this._displayOptions.keepUpdated
+    const path = this._displayOptions.selectedProject || (this.location && this.location.path)
 
     debug('Zotero.Translate.Export::translate: ', translatorID, this._displayOptions, capture)
 
-    if (capture) {
-      // this should never occur -- keepUpdated should only be settable if you do a file export
-      if (!this.location || !this.location.path) {
-        flash('Auto-export not registered', 'Auto-export only supported for exports to file -- please report this, you should not have seen this message')
-        capture = false
-      }
+    if (capture && !path) {
+      // this should never occur -- keepUpdated should only be settable if you do a file or a sharelatex export
+      flash('Auto-export not registered', 'Auto-export only supported for exports to file or sharelatex -- please report this, you should not have seen this message')
+      capture = false
+    }
 
+    if (capture && !Translators.byId[translatorID]) {
       // this should never occur -- keepUpdated should only be set by BBT translators
-      if (!Translators.byId[translatorID]) {
-        flash('Auto-export not registered', 'Auto-export only supported for Better BibTeX translators -- please report this, you should not have seen this message')
-        capture = false
-      }
+      flash('Auto-export not registered', 'Auto-export only supported for Better BibTeX translators -- please report this, you should not have seen this message')
+      capture = false
+    }
 
+    if (capture && this._displayOptions.selectedProject && ![Translators.byLabel.BetterBibLaTeX.translatorID, Translators.byLabel.BetterBibTeX.translatorID].includes(translatorID)) {
+      // this should never occur -- ShareLaTeX project selection should only be possible by bib(la)tex
+      flash('Auto-export not registered', 'Auto-export to ShareLaTeX only supported for Better Bib(La)TeX translators -- please report this, you should not have seen this message')
+      capture = false
+    }
+
+    if (capture && this._displayOptions.exportFileData) {
       // this should never occur -- the JS in exportOptions.ts should prevent it
-      if (this._displayOptions.exportFileData) {
-        flash('Auto-export not registered', 'Auto-export does not support file data export -- please report this, you should not have seen this message')
-        capture = false
-      }
+      flash('Auto-export not registered', 'Auto-export does not support file data export -- please report this, you should not have seen this message')
+      capture = false
+    }
 
-      if (!this._export || !(['library', 'collection'].includes(this._export.type))) {
-        flash('Auto-export not registered', 'Auto-export only supported for groups, collections and libraries')
-        capture = false
-      }
+    if (capture && !this._export || !(['library', 'collection'].includes(this._export.type))) {
+      flash('Auto-export not registered', 'Auto-export only supported for groups, collections and libraries')
+      capture = false
     }
 
     if (capture) {
