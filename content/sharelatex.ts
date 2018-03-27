@@ -33,62 +33,27 @@ export class ShareLaTeX {
     this.enabled = Prefs.get('ShareLaTeX_email') && Prefs.get('ShareLaTeX_password')
   }
 
-  public async login() {
-    try {
-      return await this._login()
-    } catch (err) {
-      debug('ShareLaTeX.login:', err)
-      return false
-    }
-  }
-
-  public async _login() {
-    // get login page to get _csrf
-    let page = await this.fetch('https://www.sharelatex.com/login')
-    const doc = this.domParser.parseFromString(page.response, 'text/html') as XMLDocument
-    this.csrf = Array.from(doc.getElementsByTagName('input')).find(input => input.getAttribute('name') === '_csrf').getAttribute('value')
-
-    // post login page to get session cookie
-    page = await this.fetch('https://www.sharelatex.com/login', {
-      method: 'POST',
-      headers: {
-        'Content-type': 'application/x-www-form-urlencoded',
-      },
-      body: encode({
-        email: Prefs.get('ShareLaTeX_email'),
-        password: Prefs.get('ShareLaTeX_password'),
-        _csrf: this.csrf,
-        redir: '',
-      }),
-    })
-    if (JSON.parse(page.response).redir !== '/project') throw new Error(`unexpected response: ${page.response}`)
-
-    this.cookie = page.getResponseHeader('Set-Cookie')
-    return true
-  }
-
   public async projects() {
     try {
-      return await this._projects()
+      if (!await this.login()) return []
+
+      const page = await this.fetch('https://www.sharelatex.com/project', {
+        headers: { Cookie: this.cookie },
+      })
+      const doc = this.domParser.parseFromString(page.response, 'text/html')
+      return JSON.parse(doc.getElementById('data').textContent).projects
     } catch (err) {
       debug('ShareLaTeX.projects:', err)
       return []
     }
   }
 
-  public async _projects() {
-    // get projects list
-    const page = await this.fetch('https://www.sharelatex.com/project', {
-      headers: { Cookie: this.cookie },
-    })
-    const doc = this.domParser.parseFromString(page.response, 'text/html')
-    return JSON.parse(doc.getElementById('data').textContent).projects
-  }
-
   // select a project, in my case the project named 'MWE'
   // var project = projects.find(project => project.name === 'MWE')
 
   public async upload(projectId, filename, contents) {
+    if (!await this.login()) return false
+
     // get the channel Id
     const channel = await this.fetch(`https://www.sharelatex.com/socket.io/1/?t=${Date.now().toString()}`, {
       headers: { Cookie: this.cookie },
@@ -141,6 +106,40 @@ export class ShareLaTeX {
 
     // great success!
     return status.entity_id
+  }
+
+  private async login() {
+    if (!this.enabled) return false
+    if (this._csrf) return true
+
+    try {
+      // get login page to get _csrf
+      let page = await this.fetch('https://www.sharelatex.com/login')
+      const doc = this.domParser.parseFromString(page.response, 'text/html') as XMLDocument
+      this.csrf = Array.from(doc.getElementsByTagName('input')).find(input => input.getAttribute('name') === '_csrf').getAttribute('value')
+
+      // post login page to get session cookie
+      page = await this.fetch('https://www.sharelatex.com/login', {
+        method: 'POST',
+        headers: {
+          'Content-type': 'application/x-www-form-urlencoded',
+        },
+        body: encode({
+          email: Prefs.get('ShareLaTeX_email'),
+          password: Prefs.get('ShareLaTeX_password'),
+          _csrf: this.csrf,
+          redir: '',
+        }),
+      })
+      if (JSON.parse(page.response).redir !== '/project') throw new Error(`unexpected response: ${page.response}`)
+
+      this.cookie = page.getResponseHeader('Set-Cookie')
+      return true
+
+    } catch (err) {
+      debug('ShareLaTeX.login:', err)
+      return false
+    }
   }
 
   // promisified XHR

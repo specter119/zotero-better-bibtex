@@ -81,123 +81,122 @@ $patch$(Zotero_File_Exporter.prototype, 'save', original => async function save(
   const translation = new Zotero.Translate.Export()
   const translators = await translation.getTranslators()
 
-  const io = {
-    translators,
-    bbt: {
-      keepUpdated: false,
-      ShareLaTeX: {
-        enabled: false,
-        projects: [],
-        project: null
-      }
-    }
-  }
-
   const sharelatex = new ShareLaTeX
-  if (sharelatex.enabled) {
-    if (await sharelatex.login()) {
-      io.bbt.ShareLaTeX.projects = await sharelatex.projects()
-      io.bbt.ShareLaTeX.enabled = io.bbt.ShareLaTeX.projects.length > 0
-    }
-  }
+  const projects = await sharelatex.projects()
+
+  const io = { translators, projects }
 
   // present options dialog
   window.openDialog("chrome://zotero/content/exportOptions.xul", "_blank", "chrome,modal,centerscreen,resizable=no", io);
   if(!io.selectedTranslator) { return false; }
 
-  let path
-
-  if (io.bbt.ShareLaTeX.project) {
+  if (io.project) {
     await sharelatex.upload(
-      io.bbt.ShareLaTeX.project,
+      io.project,
       `${this.name}.bib`,
       await Translators.translate(io.selectedTranslator, io.displayOptions, items: { collection: this.collection, library: this.libraryID })
     )
 
-    path = `sharelatex://${io.bbt.ShareLaTeX.project}/${encodeURIComponent(this.name)}.bib`
+    return
 
-  } else {
-    const nsIFilePicker = Components.interfaces.nsIFilePicker
-    const fp = Components.classes['@mozilla.org/filepicker;1'].createInstance(nsIFilePicker)
-    fp.init(window, Zotero.getString("fileInterface.export"), nsIFilePicker.modeSave)
-
-    // set file name and extension
-    if(io.displayOptions.exportFileData) {
-      // if the result will be a folder, don't append any extension or use
-      // filters
-      fp.defaultString = this.name
-      fp.appendFilters(Components.interfaces.nsIFilePicker.filterAll)
-    } else {
-      // if the result will be a file, append an extension and use filters
-      fp.defaultString = this.name+(io.selectedTranslator.target ? '.' + io.selectedTranslator.target : '')
-      fp.defaultExtension = io.selectedTranslator.target
-      fp.appendFilter(io.selectedTranslator.label, '*.' + (io.selectedTranslator.target ? io.selectedTranslator.target : '*'))
-    }
-
-    const rv = fp.show()
-    if (rv !== nsIFilePicker.returnOK && rv !== nsIFilePicker.returnReplace) {
-      return
-    }
-
-    path = fp.file.path
-
-    if (this.collection) {
-      translation.setCollection(this.collection)
-    } else if (this.items) {
-      translation.setItems(this.items)
-    } else if (this.libraryID === undefined) {
-      throw new Error('No export configured')
-    } else {
-      translation.setLibraryID(this.libraryID)
-    }
-
-    translation.setLocation(fp.file)
-    translation.setTranslator(io.selectedTranslator)
-    translation.setDisplayOptions(io.displayOptions)
-    translation.setHandler('itemDone', () => {
-      Zotero.updateZoteroPaneProgressMeter(translation.getProgress())
-    })
-    translation.setHandler('done', this._exportDone)
-    Zotero_File_Interface.Progress.show(
-      Zotero.getString('fileInterface.itemsExported')
-    )
-    translation.translate()
   }
 
+  const nsIFilePicker = Components.interfaces.nsIFilePicker
+  const fp = Components.classes['@mozilla.org/filepicker;1'].createInstance(nsIFilePicker)
+  fp.init(window, Zotero.getString("fileInterface.export"), nsIFilePicker.modeSave)
+
+  // set file name and extension
+  if(io.displayOptions.exportFileData) {
+    // if the result will be a folder, don't append any extension or use
+    // filters
+    fp.defaultString = this.name
+    fp.appendFilters(Components.interfaces.nsIFilePicker.filterAll)
+  } else {
+    // if the result will be a file, append an extension and use filters
+    fp.defaultString = this.name+(io.selectedTranslator.target ? '.' + io.selectedTranslator.target : '')
+    fp.defaultExtension = io.selectedTranslator.target
+    fp.appendFilter(io.selectedTranslator.label, '*.' + (io.selectedTranslator.target ? io.selectedTranslator.target : '*'))
+  }
+
+  const rv = fp.show()
+  if (rv !== nsIFilePicker.returnOK && rv !== nsIFilePicker.returnReplace) {
+    return
+  }
+
+  if (this.collection) {
+    translation.setCollection(this.collection)
+  } else if (this.items) {
+    translation.setItems(this.items)
+  } else if (this.libraryID === undefined) {
+    throw new Error('No export configured')
+  } else {
+    translation.setLibraryID(this.libraryID)
+  }
+
+  translation.setLocation(fp.file)
+  translation.setTranslator(io.selectedTranslator)
+  translation.setDisplayOptions(io.displayOptions)
+  translation.setHandler('itemDone', () => {
+    Zotero.updateZoteroPaneProgressMeter(translation.getProgress())
+  })
+  translation.setHandler('done', this._exportDone)
+  Zotero_File_Interface.Progress.show(
+    Zotero.getString('fileInterface.itemsExported')
+  )
+  translation.translate()
+})
+$patch$(Zotero.Translate.Export.prototype, 'translate', original => function() {
   try {
-    if (io.bbt.keepUpdated) {
+    /* requested translator */
+    let translatorID = this.translator[0]
+    if (translatorID.translatorID) translatorID = translatorID.translatorID
+
+    let capture = this._displayOptions && this._displayOptions.keepUpdated
+
+    debug('Zotero.Translate.Export::translate: ', translatorID, this._displayOptions, capture)
+
+    if (capture) {
+      // this should never occur -- keepUpdated should only be settable if you do a file export
+      if (!this.location || !this.location.path) {
+        flash('Auto-export not registered', 'Auto-export only supported for exports to file -- please report this, you should not have seen this message')
+        capture = false
+      }
 
       // this should never occur -- keepUpdated should only be set by BBT translators
-      if (!Translators.byId[io.selectedTranslator]) {
+      if (!Translators.byId[translatorID]) {
         flash('Auto-export not registered', 'Auto-export only supported for Better BibTeX translators -- please report this, you should not have seen this message')
-        return
+        capture = false
       }
 
       // this should never occur -- the JS in exportOptions.ts should prevent it
-      if (io.displayOptions.exportFileData) {
+      if (this._displayOptions.exportFileData) {
         flash('Auto-export not registered', 'Auto-export does not support file data export -- please report this, you should not have seen this message')
-        return
+        capture = false
       }
 
-      if (!this.collection && this.libraryID === undefined) {
+      if (!this._export || !(['library', 'collection'].includes(this._export.type))) {
         flash('Auto-export not registered', 'Auto-export only supported for groups, collections and libraries')
-        return
+        capture = false
       }
     }
 
-    AutoExport.add({
-      type: this.collection ? 'collection' : 'library',
-      id: this.collection ? this.collection.id : this.libraryID,
-      path,
-      status: 'done',
-      translatorID: io.selectedTranslator,
-      exportNotes: this.displayOptions.exportNotes,
-      useJournalAbbreviation: this.displayOptions.useJournalAbbreviation,
-    })
+    if (capture) {
+      AutoExport.add({
+        type: this._export.type,
+        id: this._export.type === 'library' ? this._export.id : this._export.collection.id,
+        path: this.location.path,
+        status: 'done',
+        translatorID,
+        exportNotes: this._displayOptions.exportNotes,
+        useJournalAbbreviation: this._displayOptions.useJournalAbbreviation,
+      })
+    }
 
   } catch (err) {
     debug('Zotero.Translate.Export::translate error:', err)
   }
+
+  return original.apply(this, arguments)
 })
 
 if (Prefs.get('citeprocNoteCitekey')) {
