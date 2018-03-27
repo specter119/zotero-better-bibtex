@@ -1,6 +1,7 @@
 declare const Components: any
 
 import { Preferences as Prefs } from './prefs.ts'
+import { debug } from './debug.ts'
 
 function sleep(ms) {
   return (new Promise(resolve => setTimeout(resolve, ms)))
@@ -110,7 +111,7 @@ export class ShareLaTeX {
 
   private async login() {
     if (!this.enabled) return false
-    if (this._csrf) return true
+    if (this.csrf) return true
 
     try {
       // get login page to get _csrf

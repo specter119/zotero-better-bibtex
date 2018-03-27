@@ -3,6 +3,8 @@ declare const document: any
 declare const Components: any
 declare const Zotero: any
 declare const AddonManager: any
+declare const Zotero_File_Exporter: any
+declare const Zotero_File_Interface: any
 
 import { Preferences as Prefs } from './prefs.ts' // needs to be here early, initializes the prefs observer
 require('./pull-export.ts') // just require, initializes the pull-export end points
@@ -84,17 +86,17 @@ $patch$(Zotero_File_Exporter.prototype, 'save', original => async function save(
   const sharelatex = new ShareLaTeX
   const projects = await sharelatex.projects()
 
-  const io = { translators, projects }
+  const io: { translators: string[], projects: any[], selectedTranslator?: any, selectedProject?: any, displayOptions?: any } = { translators, projects }
 
   // present options dialog
-  window.openDialog("chrome://zotero/content/exportOptions.xul", "_blank", "chrome,modal,centerscreen,resizable=no", io);
-  if(!io.selectedTranslator) { return false; }
+  window.openDialog('chrome://zotero/content/exportOptions.xul', '_blank', 'chrome,modal,centerscreen,resizable=no', io)
+  if (!io.selectedTranslator) { return false }
 
-  if (io.project) {
+  if (io.selectedProject) {
     await sharelatex.upload(
-      io.project,
+      io.selectedProject,
       `${this.name}.bib`,
-      await Translators.translate(io.selectedTranslator, io.displayOptions, items: { collection: this.collection, library: this.libraryID })
+      await Translators.translate(io.selectedTranslator, io.displayOptions, { collection: this.collection, library: this.libraryID })
     )
 
     return
@@ -103,17 +105,17 @@ $patch$(Zotero_File_Exporter.prototype, 'save', original => async function save(
 
   const nsIFilePicker = Components.interfaces.nsIFilePicker
   const fp = Components.classes['@mozilla.org/filepicker;1'].createInstance(nsIFilePicker)
-  fp.init(window, Zotero.getString("fileInterface.export"), nsIFilePicker.modeSave)
+  fp.init(window, Zotero.getString('fileInterface.export'), nsIFilePicker.modeSave)
 
   // set file name and extension
-  if(io.displayOptions.exportFileData) {
+  if (io.displayOptions.exportFileData) {
     // if the result will be a folder, don't append any extension or use
     // filters
     fp.defaultString = this.name
     fp.appendFilters(Components.interfaces.nsIFilePicker.filterAll)
   } else {
     // if the result will be a file, append an extension and use filters
-    fp.defaultString = this.name+(io.selectedTranslator.target ? '.' + io.selectedTranslator.target : '')
+    fp.defaultString = this.name + (io.selectedTranslator.target ? '.' + io.selectedTranslator.target : '')
     fp.defaultExtension = io.selectedTranslator.target
     fp.appendFilter(io.selectedTranslator.label, '*.' + (io.selectedTranslator.target ? io.selectedTranslator.target : '*'))
   }
