@@ -280,8 +280,8 @@ export class Reference {
   public fieldEncoding: { [key: string]: string }
   public caseConversion: { [key: string]: boolean }
   public typeMap: { csl: { [key: string]: string | { type: string, subtype?: string } }, zotero: { [key: string]: string | { type: string, subtype?: string } } }
-  public lint: Function
-  public addCreators: Function
+  public lint: (explanation: object) => string[]
+  public addCreators: () => void
 
   // private nonLetters = new Zotero.Utilities.XRegExp('[^\\p{Letter}]', 'g')
   private punctuationAtEnd = new Zotero.Utilities.XRegExp('[\\p{Punctuation}]$')
@@ -880,7 +880,7 @@ export class Reference {
 
     const caseConversion = !Translator.preferences.suppressTitleCase && (this.caseConversion[f.name] || f.caseConversion)
     const latex = text2latex(f.value, {mode: (f.html ? 'html' : 'text'), caseConversion: caseConversion && this.english})
-    let value: String | string = latex.latex
+    let value: String | string = latex.latex // tslint:disable-line:ban-types
     if (caseConversion && Translator.BetterBibTeX && !this.english) value = `{${value}}`
 
     if (f.value instanceof String && !latex.raw) value = new String(`{${value}}`) // tslint:disable-line:no-construct

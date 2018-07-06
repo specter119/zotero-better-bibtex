@@ -44,9 +44,9 @@ const validCSLTypes = [
 
 // export singleton: https://k94n.com/es6-modules-single-instance-pattern
 export let CSLExporter = new class { // tslint:disable-line:variable-name
-  public flush: Function // will be added by JSON/YAML exporter
-  public serialize: Function // will be added by JSON/YAML exporter
-  public date2CSL: Function // will be added by JSON/YAML exporter
+  public flush: (items: object[]) => string   // will be added by JSON/YAML exporter
+  public serialize: (bib: object) => string   // will be added by JSON/YAML exporter
+  public date2CSL: (date: object) => any[]    // will be added by JSON/YAML exporter
 
   public initialize() {
     const postscript = Translator.preferences.postscript

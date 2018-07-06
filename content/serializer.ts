@@ -9,7 +9,7 @@ import * as ZoteroDB from './db/zotero.ts'
 
 // export singleton: https://k94n.com/es6-modules-single-instance-pattern
 export let Serializer = new class { // tslint:disable-line:variable-name
-  public simplify: Function
+  public simplify: (item: object) => object
   public validFields: { [key: string]: { [key: string]: boolean } }
 
   private collection = 'itemToExportFormat'
@@ -47,7 +47,7 @@ export let Serializer = new class { // tslint:disable-line:variable-name
     simplify += 'item.notes = item.notes ? item.notes.map(function(note) { return note.note }) : [];\n'
     simplify += 'return item;'
     debug('Serializer.init: simplify =\n', simplify)
-    this.simplify = new Function('item', simplify)
+    this.simplify = new Function('item', simplify) as any as (item: object) => object
 
     this.validFields = {}
     fields = await ZoteroDB.queryAsync(`

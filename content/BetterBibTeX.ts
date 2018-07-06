@@ -526,7 +526,7 @@ class Progress {
 export = new class BetterBibTeX {
   public ready: any
   private strings: any
-  private firstRun: { citekeyFormat: String, dragndrop: boolean }
+  private firstRun: { citekeyFormat: string, dragndrop: boolean }
 
   constructor() {
     if (Zotero.BetterBibTeX) {

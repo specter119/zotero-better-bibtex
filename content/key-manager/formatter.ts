@@ -15,7 +15,7 @@ const fold2ascii = require('fold-to-ascii').fold
 import PunyCode = require('punycode')
 
 class PatternFormatter {
-  public generate: Function
+  public generate: () => { citekey: string, postfix: string }
 
   public itemTypes: Set<string>
 
@@ -83,7 +83,8 @@ class PatternFormatter {
 
       try {
         debug(`PatternFormatter.update: trying citekeyFormat ${this.citekeyFormat}...`)
-        this.generate = new Function(this.parsePattern(this.citekeyFormat))
+        // double assertion https://basarat.gitbooks.io/typescript/content/docs/types/type-assertion.html
+        this.generate = new Function(this.parsePattern(this.citekeyFormat)) as any as () => { citekey: string, postfix: string }
         break
       } catch (err) {
         debug('PatternFormatter.update: Error parsing citekeyFormat ', {pattern: this.citekeyFormat}, err)
@@ -95,7 +96,7 @@ class PatternFormatter {
 
   public parsePattern(pattern) { return parser.parse(pattern, this) }
 
-  public format(item) {
+  public format(item): { citekey?: string, postfix?: string } {
     this.item = {
       item,
       type: Zotero.ItemTypes.getName(item.itemTypeID),
