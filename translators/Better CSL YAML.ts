@@ -1,3 +1,6 @@
+/// <reference path="csl/csl-yaml-date.d.ts" />
+/// <reference path="../content/dateparser.d.ts" />
+
 declare const Translator: ITranslator
 
 import YAML = require('js-yaml')
@@ -101,7 +104,7 @@ const htmlConverter = new class HTML {
   }
 }
 
-function date2csl(date) {
+function date2csl(date: Zotero.BetterBibTeX.Date.Date): CSL.Date.Date {
   switch (date.type) {
     case 'open':
       return { year: 0 }
@@ -126,7 +129,7 @@ function date2csl(date) {
   }
 }
 
-Exporter.date2CSL = date => {
+Exporter.date2CSL = (date: Zotero.BetterBibTeX.Date.Date) => {
   switch (date.type) {
     case 'date':
     case 'season':
