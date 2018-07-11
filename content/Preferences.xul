@@ -416,7 +416,7 @@
         <preference
           name="extensions.zotero.translators.better-bibtex.ajv"
           type="bool"
-          default="true"/>
+          default="false"/>
         <!--! !-->
 
       </preferences>
