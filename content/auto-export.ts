@@ -37,51 +37,57 @@ function queueHandler(kind, handler) {
 const scheduled = new Queue(
   queueHandler('scheduled',
     async task => {
-      const db = DB.getCollection('autoexport')
-      const ae = db.get(task.id)
-      if (!ae) throw new Error(`AutoExport ${task.id} not found`)
+      let ae = null
+      let db = null
+      let displayOptions = null
 
-      log.debug('AutoExport.scheduled:', ae)
-      ae.status = 'running'
-      db.update(ae)
+      switch (task.type) {
+        case 'implicit-collection':
+          displayOptions = {}
+          break
 
-      try {
-        let items
-        switch (ae.type) {
-          case 'collection':
-            items = { collection: ae.id }
-            break
-          case 'library':
-            items = { library: ae.id }
-            break
-          default:
-            items = null
-        }
+        default:
+          db = DB.getCollection('autoexport')
+          ae = db.get(task.id)
+          if (!ae) throw new Error(`AutoExport ${task.id} not found`)
 
-        log.debug('AutoExport.scheduled: starting export', ae)
+          ae.status = 'running'
+          db.update(ae)
 
-        const { repo, name } = AutoExport.gitPush(ae.path) // tslint:disable-line:no-use-before-declare
-        AutoExport.pull(repo) // tslint:disable-line:no-use-before-declare
-        const displayOptions = {
-          exportNotes: ae.exportNotes,
-          useJournalAbbreviation: ae.useJournalAbbreviation,
-        }
-        for (const pref of prefOverrides) {
-          displayOptions[`preference_${pref}`] = ae[pref]
-        }
-        await Translators.translate(ae.translatorID, displayOptions, items, ae.path)
-        AutoExport.push(repo, name) // tslint:disable-line:no-use-before-declare
-
-        log.debug('AutoExport.scheduled: export finished', ae)
-        ae.error = ''
-      } catch (err) {
-        log.error('AutoExport.scheduled: failed', ae, err)
-        ae.error = `${err}`
+          displayOptions = {
+            exportNotes: ae.exportNotes,
+            useJournalAbbreviation: ae.useJournalAbbreviation,
+          }
+          for (const pref of prefOverrides) {
+            displayOptions[`preference_${pref}`] = ae[pref]
+          }
+          break
       }
 
-      ae.status = 'done'
-      db.update(ae)
-      log.debug('AutoExport.scheduled: completed', task, ae)
+      log.debug('AutoExport.scheduled:', task)
+
+      try {
+        log.debug('AutoExport.scheduled: starting export', task)
+
+        const { repo, name } = AutoExport.gitPush(task.path) // tslint:disable-line:no-use-before-declare
+        AutoExport.pull(repo) // tslint:disable-line:no-use-before-declare
+        await Translators.translate(task.translatorID, displayOptions, task.items, task.path)
+        AutoExport.push(repo, name) // tslint:disable-line:no-use-before-declare
+
+        log.debug('AutoExport.scheduled: export finished', task)
+        if (ae) ae.error = ''
+
+      } catch (err) {
+        log.error('AutoExport.scheduled: failed', task, err)
+        if (ae) ae.error = `${err}`
+      }
+
+      if (ae) {
+        ae.status = 'done'
+        db.update(ae)
+      }
+
+      log.debug('AutoExport.scheduled: completed', task)
     }
   ),
 
@@ -99,23 +105,25 @@ const scheduler = new Queue(
     async task => {
       task = {...task}
 
-      const db = DB.getCollection('autoexport')
-      const ae = db.get(task.id)
-      if (!ae) throw new Error(`AutoExport ${task.id} not found`)
+      if (task.type !== 'implicit-collection') {
+        const db = DB.getCollection('autoexport')
+        const ae = db.get(task.id)
+        if (!ae) throw new Error(`AutoExport ${task.id} not found`)
 
-      log.debug('AutoExport.scheduler:', task, '->', ae, !!ae)
-      ae.status = 'scheduled'
-      db.update(ae)
-      log.debug('AutoExport.scheduler: waiting...', task, ae)
+        log.debug('AutoExport.scheduler:', task, '->', ae, !!ae)
+        ae.status = 'scheduled'
+        db.update(ae)
+        log.debug('AutoExport.scheduler: waiting...', task, ae)
+      }
 
       await Zotero.Promise.delay(debounce_delay)
 
-      log.debug('AutoExport.scheduler: woken', task, ae)
+      log.debug('AutoExport.scheduler: woken', task)
 
       if (task.cancelled) {
-        log.debug('AutoExport.scheduler: cancel', ae)
+        log.debug('AutoExport.scheduler: cancel', task)
       } else {
-        log.debug('AutoExport.scheduler: start', ae)
+        log.debug('AutoExport.scheduler: start', task)
         scheduled.push(task)
       }
     }
@@ -253,7 +261,46 @@ export let AutoExport = new class { // tslint:disable-line:variable-name
     log.debug('AutoExport.schedule:', type, ids, {db: this.db.data, state: Prefs.get('autoExport'), scheduler: !scheduler._stopped, scheduled: !scheduled._stopped})
     for (const ae of this.db.find({ type, id: { $in: ids } })) {
       log.debug('AutoExport.schedule: push', ae.$loki)
-      scheduler.push({ id: ae.$loki })
+
+      let items
+      switch (ae.type) {
+        case 'collection':
+          items = { collection: ae.id }
+          break
+
+        case 'library':
+          items = { library: ae.id }
+          break
+
+        default:
+          throw new Error(`Unexpected auto-export type ${ae.type}`)
+      }
+
+      scheduler.push({
+        id: ae.$loki,
+        type: ae.type,
+        items,
+        path: ae.path,
+        translatorID: ae.translatorID,
+      })
+    }
+
+    // 1074
+    if (type === 'collection') {
+      for (const id of ids) {
+        const cn = this.collectionName(id)
+        let path = cn.collection.join(' - ') + '.bib'
+        if (cn.library) path = `${cn.library} -- ${name}`
+        // TODO: add root here
+
+        scheduler.push({
+          id: `implicit-collection:${id}`, // different ID so debounce works correctly
+          type: 'implicit-collection',
+          items: { collection: id },
+          path,
+          translatorID: '',
+        })
+      }
     }
   }
 
@@ -285,6 +332,23 @@ export let AutoExport = new class { // tslint:disable-line:variable-name
       found = {}
     }
     return found
+  }
+
+  public collectionName(id, form = 'long', path = { library: null, collection: [] }) {
+    if (isNaN(parseInt(id))) return path
+
+    const coll = Zotero.Collections.get(id)
+    if (!coll) return path
+
+    path.collection.unshift(coll.name)
+
+    if (form === 'long' && !isNaN(parseInt(coll.parentID))) {
+      this.collectionName(coll.parentID, form, path)
+    } else {
+      if (coll.libraryID !== Zotero.Libraries.userLibraryID) path.library = Zotero.Libraries.get(coll.libraryID).name
+    }
+
+    return path
   }
 
   private gitDir(repo) {
